@@ -30,16 +30,7 @@ class Point {
   }
 
   bounded(max: number) {
-    return new Point(...this.coords.map(value => {
-      if (Math.abs(value) > max) {
-        if (value < 0) {
-          return Math.max(-max, value)
-        } else {
-          return Math.min(max, value)
-        }
-      }
-      return value
-    }))
+    return new Point(...this.coords.map(value => (value < 0) ? Math.max(-max, value) : Math.min(max, value)))
   }
 
   hash() {
@@ -50,9 +41,9 @@ class Point {
 class Rope {
   private readonly segments: Point[] = [];
 
-  constructor(private readonly segmentCount: number) {
+  constructor(private readonly segmentCount: number, origin: Point) {
     for (let i = 0; i < segmentCount; ++i) {
-      this.segments[i] = new Point(0, 0)
+      this.segments[i] = origin
     }
   }
 
@@ -80,7 +71,7 @@ class Rope {
   }
 }
 
-function ropeMove(ropeLength:number) {
+function ropeMove(ropeLength: number) {
   const directions: Record<string, Point> = {
     "U": new Point(0, 1),
     "D": new Point(0, -1),
@@ -90,7 +81,7 @@ function ropeMove(ropeLength:number) {
 
   const visited: Record<string, boolean> = {}
 
-  const rope = new Rope(ropeLength);
+  const rope = new Rope(ropeLength, new Point(0, 0));
 
   visited[rope.tail.hash()] = true
 
