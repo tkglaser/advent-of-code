@@ -3,12 +3,13 @@ const input = `<input>`.split("\n")
 type TickFn = (time: number) => void
 
 class Clock {
-  private time: number = 0
+  #time: number = 0
+
   constructor(private readonly tickFn: TickFn) { }
 
   tick() {
-    ++this.time;
-    this.tickFn(this.time)
+    ++this.#time;
+    this.tickFn(this.#time)
   }
 }
 
