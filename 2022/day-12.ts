@@ -1,7 +1,6 @@
 import { Point } from "./utils/point";
 
-const input =
-    `<input>`.split("\n");
+const input = `<input>`.split("\n");
 
 class Terrain {
     map: number[] = [];
@@ -53,7 +52,12 @@ class MarkChart {
     }
 }
 
-function findShortestDistanceFrom(map: Terrain, start: Point) {
+function findShortestDistanceFrom(
+    map: Terrain,
+    start: Point,
+    forward: boolean,
+    exitCondition: (point: Point) => boolean
+) {
     const marks = new MarkChart();
 
     const nextDeltas = [
@@ -74,7 +78,7 @@ function findShortestDistanceFrom(map: Terrain, start: Point) {
             return Number.MAX_VALUE; // no path found
         }
 
-        if (currentPoint.p.equals(map.end)) {
+        if (exitCondition(currentPoint.p)) {
             return currentPoint.l;
         }
 
@@ -84,7 +88,10 @@ function findShortestDistanceFrom(map: Terrain, start: Point) {
             const nextLevel = currentPoint.l + 1;
             const nextPoint = currentPoint.p.add(delta);
             const nextPointElevation = map.get(nextPoint);
-            if (nextPointElevation <= currentElevation + 1) {
+            if (
+                (forward && nextPointElevation <= currentElevation + 1) ||
+                (!forward && currentElevation <= nextPointElevation + 1)
+            ) {
                 if (marks.get(nextPoint) > nextLevel) {
                     marks.set(nextPoint, nextLevel);
                     nextPoints.push({ p: nextPoint, l: nextLevel });
@@ -97,31 +104,18 @@ function findShortestDistanceFrom(map: Terrain, start: Point) {
 function part1() {
     const map = new Terrain();
 
-    console.log(findShortestDistanceFrom(map, map.start));
+    console.log(
+        findShortestDistanceFrom(map, map.start, true, (p) => p.equals(map.end))
+    );
 }
 
 function part2() {
     const map = new Terrain();
 
-    let shortest = Number.MAX_VALUE;
-
-    // Brute-force solution, would have been better to reverse the
-    // search storing the marks and then iterate over the "a"s
-
-    // find all zero-elevation points
-    for (let x = 0; x < map.dim[0]; ++x) {
-        for (let y = 0; y < map.dim[0]; ++y) {
-            const start = new Point(x, y);
-            const elevation = map.get(start);
-            if (elevation === 0) {
-                const dist = findShortestDistanceFrom(map, start);
-                shortest = Math.min(dist, shortest);
-            }
-        }
-    }
-
-    console.log(shortest);
+    console.log(
+        findShortestDistanceFrom(map, map.end, false, (p) => map.get(p) === 0)
+    );
 }
 
-part1()
+part1();
 part2();
