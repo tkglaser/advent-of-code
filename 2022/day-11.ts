@@ -1,222 +1,205 @@
-const input = `Monkey 0:
-  Starting items: 79, 98
-  Operation: new = old * 19
-  Test: divisible by 23
-    If true: throw to monkey 2
-    If false: throw to monkey 3
+import { Lexer } from "./day-11/lexer";
+import {
+  ASTArithmetic,
+  ASTDivisibilityTest,
+  ASTLiteral,
+  ASTMonkeyDefinition,
+  ASTNodeType,
+  ASTStartingItems,
+  ASTThrowCondition,
+  Parser,
+} from "./day-11/parser";
 
-Monkey 1:
-  Starting items: 54, 65, 75, 74
-  Operation: new = old + 6
-  Test: divisible by 19
-    If true: throw to monkey 2
-    If false: throw to monkey 0
+const input = `<input>`;
 
-Monkey 2:
-  Starting items: 79, 60, 97
-  Operation: new = old * old
-  Test: divisible by 13
-    If true: throw to monkey 1
-    If false: throw to monkey 3
+const lexer = new Lexer(input);
+const tokens = lexer.tokenise();
 
-Monkey 3:
-  Starting items: 74
-  Operation: new = old + 3
-  Test: divisible by 17
-    If true: throw to monkey 0
-    If false: throw to monkey 1`;
+const parser = new Parser(tokens);
+const ast = parser.parse();
 
-/**
- * LEXER
- */
+class Monkey {
+  public readonly items: number[] = [];
+  public readonly id: number;
+  public readonly opLeft: number | "old";
+  public readonly op: "+" | "-" | "*" | "/";
+  public readonly opRight: number | "old";
+  public readonly divisibilityTestValue: number;
+  public readonly onTrueThrowTo: number;
+  public readonly onFalseThrowTo: number;
+  public itemsInspected = 0;
+  public modulo = 1;
 
-const enum TokenType {
-  Monkey = 'Monkey',
-  Space = 'Space',
-  Number = 'Number',
-  Comma = 'Comma',
-  New = 'New',
-  Old = 'Old',
-  StartingItems = 'Starting items',
-  AssignmentOperator = 'AssignmentOperator',
-  Operation = 'Operation',
-  Test = 'Test',
-  DivisibleBy = 'DivisibleBy',
-  ArithMetic = 'Arithmetic',
-  If = 'If',
-  True = 'True',
-  False = 'False',
-  Colon = 'Colon',
-  Literal = 'Literal',
-  ThrowTo = 'ThrowTo',
-  LineBreak = 'LineBreak'
-}
+  constructor(
+    definition: ASTMonkeyDefinition,
+    private onThrow: (to: number, item: number) => void,
+    private readonly chillMode: boolean
+  ) {
+    this.id = parser.find<ASTLiteral>(
+      definition.children,
+      ASTNodeType.Literal
+    )?.value!;
 
-interface TokenNode<T extends TokenType> {
-  type: T
-}
+    const startingItemNodes = parser.find<ASTStartingItems>(
+      definition.children,
+      ASTNodeType.StartingItems
+    )?.children!;
 
-interface TokenValueNode<T extends TokenType, V> extends TokenNode<T> {
-  value: V
-}
+    this.items = startingItemNodes.map((item) => (item as ASTLiteral).value);
 
-type Token =
-  | TokenNode<TokenType.Monkey>
-  | TokenNode<TokenType.StartingItems>
-  | TokenNode<TokenType.Operation>
-  | TokenNode<TokenType.Space>
-  | TokenNode<TokenType.DivisibleBy>
-  | TokenNode<TokenType.Colon>
-  | TokenNode<TokenType.Comma>
-  | TokenNode<TokenType.AssignmentOperator>
-  | TokenNode<TokenType.New>
-  | TokenNode<TokenType.Old>
-  | TokenNode<TokenType.True>
-  | TokenNode<TokenType.False>
-  | TokenNode<TokenType.Test>
-  | TokenNode<TokenType.If>
-  | TokenNode<TokenType.ThrowTo>
-  | TokenNode<TokenType.LineBreak>
-  | TokenValueNode<TokenType.Number, number>
-  | TokenValueNode<TokenType.ArithMetic, '+' | '-' | '*' | '/'>
+    const arithmetic = parser.find<ASTArithmetic>(
+      definition.children,
+      ASTNodeType.Arithmetic
+    )!;
 
-class Lexer {
-  #pos = 0;
-  #tokenStringMap: Record<string, Token> =
-    {
-      'throw to monkey': { type: TokenType.ThrowTo },
-      'Monkey': { type: TokenType.Monkey },
-      'Starting items': { type: TokenType.StartingItems },
-      'Operation': { type: TokenType.Operation },
-      'new': { type: TokenType.New },
-      'old': { type: TokenType.Old },
-      'true': { type: TokenType.True },
-      'false': { type: TokenType.False },
-      'divisible by': { type: TokenType.DivisibleBy },
-      ' ': { type: TokenType.Space },
-      ':': { type: TokenType.Colon },
-      ',': { type: TokenType.Comma },
-      '=': { type: TokenType.AssignmentOperator },
-      'Test': { type: TokenType.Test },
-      'If': { type: TokenType.If },
-      '\n': { type: TokenType.LineBreak }
-    }
+    this.opLeft =
+      arithmetic.left.type === ASTNodeType.OldValue
+        ? "old"
+        : (arithmetic.left as ASTLiteral).value;
+    this.op = arithmetic.operator.operator;
+    this.opRight =
+      arithmetic.right.type === ASTNodeType.OldValue
+        ? "old"
+        : (arithmetic.right as ASTLiteral).value;
 
-  constructor(private readonly input: string) { }
+    const divisibilityTest = parser.find<ASTDivisibilityTest>(
+      definition.children,
+      ASTNodeType.DivisibilityTest
+    )!;
 
-  tokenise() {
-    const result: Token[] = []
-    while (this.#pos < this.input.length) {
-      let foundMatch = false
-      for (const [key, value] of Object.entries(this.#tokenStringMap)) {
-        if (this.#lookaheadToken(key)) {
-          foundMatch = true
-          this.#pos += key.length
-          result.push(value)
-          continue;
-        }
-      }
+    this.divisibilityTestValue = (divisibilityTest.value as ASTLiteral).value;
+    this.onTrueThrowTo = (
+      divisibilityTest.throwConditions.find(
+        (cond) => (cond as ASTThrowCondition).on === true
+      ) as ASTThrowCondition
+    ).throwTo;
 
-      if (foundMatch) continue;
-
-      const strValue = this.#lookaheadNumber()
-      if (strValue.length) {
-        const value = +strValue
-        foundMatch = true
-        this.#pos += strValue.length
-        result.push({ type: TokenType.Number, value })
-      }
-
-      if (foundMatch) continue;
-
-      if (['+', '-', '*', '/'].includes(this.input[this.#pos])) {
-        foundMatch = true
-        result.push({ type: TokenType.ArithMetic, value: this.input[this.#pos] as any })
-        ++this.#pos
-      }
-
-      if (foundMatch) continue;
-
-      console.log(result)
-      throw new Error("Lexing failed")
-    }
-    return result;
+    this.onFalseThrowTo = (
+      divisibilityTest.throwConditions.find(
+        (cond) => (cond as ASTThrowCondition).on === false
+      ) as ASTThrowCondition
+    ).throwTo;
   }
 
-  #lookaheadToken(tok: string) {
-    let match = true
-    tok.split('').forEach((char, idx) => {
-      if (char !== this.input.charAt(this.#pos + idx)) {
-        match = false
-      }
-    })
-    return match
-  }
-
-  #lookaheadNumber() {
-    let scanPos = 0
-    let buffer = ''
-    let scanComplete = false
-    do {
-      const curChar = this.input[this.#pos + scanPos]
-      if (/\d/.test(curChar)) {
-        buffer += this.input[this.#pos + scanPos]
+  playRound() {
+    // console.log(`Monkey ${this.id}:`);
+    while (this.items.length) {
+      ++this.itemsInspected;
+      const item = this.items.shift()!;
+      // console.log(`  Monkey inspects an item with a worry level of ${item}.`);
+      let worry = this.calculateWorry(item);
+      // console.log(`    Worry level has reached ${worry}.`);
+      if (this.chillMode) {
+        // gets bored
+        worry = Math.floor(worry / 3);
+        // console.log(
+        //   `    Monkey gets bored with item. Worry level is divided by 3 to ${worry}.`
+        // );
       } else {
-        scanComplete = true
+        worry = worry % this.modulo;
       }
-      ++scanPos
-    } while (!scanComplete)
+      const isDivisible = worry % this.divisibilityTestValue === 0;
+      if (isDivisible) {
+        // console.log(
+        //   `    Current worry level is divisible by ${this.divisibilityTestValue}.`
+        // );
+        // console.log(
+        //   `    Item with worry level ${worry} is thrown to monkey ${this.onTrueThrowTo}.`
+        // );
+        this.throw(this.onTrueThrowTo, worry);
+      } else {
+        // console.log(
+        //   `    Current worry level is not divisible by ${this.divisibilityTestValue}.`
+        // );
+        // console.log(
+        //   `    Item with worry level ${worry} is thrown to monkey ${this.onFalseThrowTo}.`
+        // );
+        this.throw(this.onFalseThrowTo, worry);
+      }
+    }
+  }
 
-    return buffer;
+  catchItem(item: number) {
+    this.items.push(item);
+  }
+
+  throw(to: number, item: number) {
+    this.onThrow(to, item);
+  }
+
+  printInventory() {
+    console.log(`Monkey ${this.id}: ${this.items.join(", ")}`);
+  }
+
+  printActivity() {
+    console.log(
+      `Monkey ${this.id} inspected items ${this.itemsInspected} times.`
+    );
+  }
+
+  private calculateWorry(item: number) {
+    const opRight = this.opRight === "old" ? item : this.opRight;
+    const opLeft = this.opLeft === "old" ? item : this.opLeft;
+    switch (this.op) {
+      case "+":
+        return opRight + opLeft;
+      case "-":
+        return opRight - opLeft;
+      case "*":
+        return opRight * opLeft;
+      case "/":
+        return opRight / opLeft;
+    }
   }
 }
 
-/**
- * PARSER
- */
+function part1() {
+  const slingShot = (to: number, item: number) => {
+    monkeys[to].catchItem(item);
+  };
+  const monkeys = ast.children.map(
+    (definition) =>
+      new Monkey(definition as ASTMonkeyDefinition, slingShot, true)
+  );
 
-enum ASTNodeType {
-  Program = 'Program',
-  MonkeyDefinition = 'MonkeyDefinition',
-  Operation = 'Operation',
-  Test = 'Test',
-  ConditionalThrow = 'Throw',
-  Literal = 'Literal',
-  LiteralArray = 'LiteralArray',
+  for (let round = 0; round < 20; ++round) {
+    for (const monkey of monkeys) {
+      monkey.playRound();
+    }
+  }
+
+  for (const monkey of monkeys) {
+    monkey.printActivity();
+  }
 }
 
-interface ASTValueNode<T extends ASTNodeType, K> {
-  type: T,
-  value: K
+function part2() {
+  const slingShot = (to: number, item: number) => {
+    monkeys[to].catchItem(item);
+  };
+  const monkeys = ast.children.map(
+    (definition) =>
+      new Monkey(definition as ASTMonkeyDefinition, slingShot, false)
+  );
+
+  const modulo = monkeys.reduce(
+    (mod, monkey) => mod * monkey.divisibilityTestValue,
+    1
+  );
+
+  for (const monkey of monkeys) {
+    monkey.modulo = modulo;
+  }
+
+  for (let round = 0; round < 10000; ++round) {
+    for (const monkey of monkeys) {
+      monkey.playRound();
+    }
+  }
+
+  for (const monkey of monkeys) {
+    monkey.printActivity();
+  }
 }
 
-interface ASTProgramNode {
-  type: ASTNodeType.Program,
-  children: ASTNode[]
-}
-
-interface ASTMonkeyDefinition {
-  type: ASTNodeType.MonkeyDefinition
-  startingItems: 
-}
-
-interface ASTAssignmentNode {
-  type: ASTNodeType.Assignment,
-  name: string,
-  value: ASTNode
-}
-
-interface ASTLogNode {
-  type: ASTNodeType.Log,
-  children: ASTNode[]
-}
-
-type ASTNode =
-  ASTValueNode<ASTNodeType.String, string> |
-  ASTValueNode<ASTNodeType.Literal, string> |
-  ASTProgramNode |
-  ASTAssignmentNode |
-  ASTLogNode
-
-const lexer = new Lexer(input)
-console.log(lexer.tokenise())
+part2();
