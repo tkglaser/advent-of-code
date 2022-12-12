@@ -9,7 +9,7 @@ export const enum TokenType {
     Operation = "Operation",
     Test = "Test",
     DivisibleBy = "DivisibleBy",
-    ArithMetic = "Arithmetic",
+    Arithmetic = "Arithmetic",
     If = "If",
     True = "True",
     False = "False",
@@ -27,6 +27,10 @@ export const enum TokenType {
   export interface TokenValueNode<T extends TokenType, V> extends TokenNode<T> {
     value: V;
   }
+
+  export type TokenArithmeticNode = TokenValueNode<TokenType.Arithmetic, "+" | "-" | "*" | "/">;
+
+  export type TokenNumberNode = TokenValueNode<TokenType.Number, number>;
   
   export type Token =
     | TokenNode<TokenType.Monkey>
@@ -45,8 +49,8 @@ export const enum TokenType {
     | TokenNode<TokenType.ThrowTo>
     | TokenNode<TokenType.EmptyLine>
     | TokenNode<TokenType.LineBreak>
-    | TokenValueNode<TokenType.Number, number>
-    | TokenValueNode<TokenType.ArithMetic, "+" | "-" | "*" | "/">;
+    | TokenNumberNode
+    | TokenArithmeticNode;
   
   export class Lexer {
     #pos = 0;
@@ -115,7 +119,7 @@ export const enum TokenType {
         if (["+", "-", "*", "/"].includes(this.input[this.#pos])) {
           foundMatch = true;
           result.push({
-            type: TokenType.ArithMetic,
+            type: TokenType.Arithmetic,
             value: this.input[this.#pos] as any,
           });
           ++this.#pos;

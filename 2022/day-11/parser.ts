@@ -1,4 +1,4 @@
-import { Token, TokenType, TokenValueNode } from "./lexer";
+import { Token, TokenArithmeticNode, TokenNumberNode, TokenType, TokenValueNode } from "./lexer";
 
 export enum ASTNodeType {
   Program = "Program",
@@ -83,13 +83,16 @@ export type ASTNode =
 
 export class Parser {
   #pos = 0;
-  constructor(private readonly tokens: Token[]) {}
+  constructor(private readonly tokens: Token[]) { }
 
   parse(): ASTProgramNode {
     const process = (): ASTNode | undefined => {
       const currentToken = this.tokens[this.#pos];
 
-      if (TokenType.Monkey === currentToken.type) {
+      const is = (type: TokenType) => currentToken.type === type;
+      const isIn = (...types: TokenType[]) => types.includes(currentToken.type);
+
+      if (is(TokenType.Monkey)) {
         let nextNode = this.tokens[this.#pos++];
 
         const children: ASTNode[] = [];
@@ -110,7 +113,7 @@ export class Parser {
         };
       }
 
-      if (TokenType.StartingItems === currentToken.type) {
+      if (is(TokenType.StartingItems)) {
         let nextNode = this.tokens[this.#pos++];
 
         const children: ASTNode[] = [];
@@ -131,7 +134,7 @@ export class Parser {
         };
       }
 
-      if (TokenType.Operation === currentToken.type) {
+      if (is(TokenType.Operation)) {
         ++this.#pos;
         const [, , , left, op, right] = [
           process(),
@@ -162,7 +165,7 @@ export class Parser {
         };
       }
 
-      if (TokenType.Test === currentToken.type) {
+      if (is(TokenType.Test)) {
         ++this.#pos;
 
         let value: ASTNode | undefined;
@@ -185,7 +188,7 @@ export class Parser {
         };
       }
 
-      if (TokenType.If === currentToken.type) {
+      if (is(TokenType.If)) {
         const lineTokens: Token[] = [];
         while (
           this.tokens[this.#pos] &&
@@ -202,41 +205,39 @@ export class Parser {
         };
       }
 
-      if (
-        [
-          TokenType.Colon,
-          TokenType.New,
-          TokenType.AssignmentOperator,
-          TokenType.Comma,
-          TokenType.LineBreak,
-          TokenType.EmptyLine,
-          TokenType.DivisibleBy,
-        ].includes(currentToken.type)
+      if (isIn(
+        TokenType.Colon,
+        TokenType.New,
+        TokenType.AssignmentOperator,
+        TokenType.Comma,
+        TokenType.LineBreak,
+        TokenType.EmptyLine,
+        TokenType.DivisibleBy,)
       ) {
         ++this.#pos;
         return undefined;
       }
 
-      if (currentToken.type === TokenType.Old) {
+      if (is(TokenType.Old)) {
         ++this.#pos;
         return {
           type: ASTNodeType.OldValue,
         };
       }
 
-      if (currentToken.type === TokenType.ArithMetic) {
+      if (is(TokenType.Arithmetic)) {
         ++this.#pos;
         return {
           type: ASTNodeType.Operator,
-          operator: currentToken.value,
+          operator: (currentToken as TokenArithmeticNode).value,
         };
       }
 
-      if (currentToken.type === TokenType.Number) {
+      if (is(TokenType.Number)) {
         ++this.#pos;
         return {
           type: ASTNodeType.Literal,
-          value: currentToken.value,
+          value: (currentToken as TokenNumberNode).value,
         };
       }
 

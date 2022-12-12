@@ -142,13 +142,13 @@ class Monkey {
     const opLeft = this.opLeft === "old" ? item : this.opLeft;
     switch (this.op) {
       case "+":
-        return opRight + opLeft;
+        return opLeft + opRight;
       case "-":
-        return opRight - opLeft;
+        return opLeft - opRight;
       case "*":
-        return opRight * opLeft;
+        return opLeft * opRight;
       case "/":
-        return opRight / opLeft;
+        return opLeft / opRight;
     }
   }
 }
