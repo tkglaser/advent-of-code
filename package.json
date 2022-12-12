@@ -4,7 +4,7 @@
     "description": "",
     "main": "index.js",
     "scripts": {
-      "start": "ts-node 2022/day-11.ts"
+      "start": "ts-node 2022/day-12.ts"
     },
     "repository": {
       "type": "git",

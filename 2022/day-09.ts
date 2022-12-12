@@ -1,42 +1,6 @@
+import { Point } from "./utils/point";
+
 const input = `<input here>`.split("\n")
-
-class Point {
-  private readonly coords: ReadonlyArray<number> // Point instances are immutable
-  private readonly dim: number;
-
-  constructor(...coords: number[]) {
-    this.coords = coords;
-    this.dim = coords.length;
-  }
-
-  add(that: Point) {
-    const results: number[] = []
-    for (let i = 0; i < this.dim; ++i) {
-      results[i] = this.coords[i] + that.coords[i]
-    }
-    return new Point(...results)
-  }
-
-  sub(that: Point) {
-    const results: number[] = []
-    for (let i = 0; i < this.dim; ++i) {
-      results[i] = this.coords[i] - that.coords[i]
-    }
-    return new Point(...results)
-  }
-
-  maxAbs() {
-    return this.coords.reduce((max, curr) => Math.max(Math.abs(curr), max), 0)
-  }
-
-  bounded(max: number) {
-    return new Point(...this.coords.map(value => (value < 0) ? Math.max(-max, value) : Math.min(max, value)))
-  }
-
-  hash() {
-    return this.coords.join("|")
-  }
-}
 
 class Rope {
   private readonly segments: Point[] = [];
@@ -83,13 +47,13 @@ function ropeMove(ropeLength: number) {
 
   const rope = new Rope(ropeLength, new Point(0, 0));
 
-  visited[rope.tail.hash()] = true
+  visited[rope.tail.hash] = true
 
   for (const [dir, steps] of input.map(line => line.split(" "))) {
     let stepCtr = +steps;
     while (stepCtr > 0) {
       rope.moveHead(directions[dir])
-      visited[rope.tail.hash()] = true
+      visited[rope.tail.hash] = true
       --stepCtr
     }
   }
